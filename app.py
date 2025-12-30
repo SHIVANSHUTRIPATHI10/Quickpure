@@ -47,5 +47,19 @@ def save():
 
     return redirect(url_for("home", success="1"))
 
+
+@app.route("/admin/data")
+def admin_data():
+    conn = sqlite3.connect("contact.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM contacts")
+    data = cursor.fetchall()
+    conn.close()
+    return {"data": data}
+@app.route("/test")
+def test():
+    return "TEST OK"
+
+
 if __name__ == "__main__":
     app.run()
