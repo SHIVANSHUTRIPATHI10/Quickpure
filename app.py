@@ -1,9 +1,22 @@
-from flask import Flask, request,render_template,redirect,url_for
-from openpyxl import Workbook, load_workbook
-import os
+from flask import Flask, request,url_for, redirect, render_template
+import sqlite3
 
 app = Flask(__name__)
-FILE = "contact_data.xlsx"
+def __init__db():
+    conn = sqlite3.connect('contact.db')
+    cursor = conn.cursor()
+    cursor.execute('''CREATE TABLE IF NOT EXISTS contacts(
+                   name TEXT NOT NULL,   
+                   email TEXT NOT NULL,
+                   phone TEXT NOT NULL,
+                   message TEXT NOT NULL
+                   )
+                   ''')
+    
+    conn.commit()
+    conn.close
+
+__init__db()
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -14,18 +27,11 @@ def save():
     email = request.form["email"]
     phone = request.form["phone"]
     message = request.form["message"]
-
-    if os.path.exists(FILE):
-        wb = load_workbook(FILE)
-        sheet = wb.active
-    else:
-        wb = Workbook()
-        sheet = wb.active
-        sheet.append(["Name", "Email", "Phone", "Message"])
-
-    sheet.append([name, email, phone, message])
-    wb.save(FILE)
-
+    conn = sqlite3.connect('contact.db')
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO contacts (name, email, phone, message) VALUES (?, ?, ?, ?)", (name, email, phone, message))
+    conn.commit()
+    conn.close()
     return redirect(url_for("home",success="1"))
  
 
