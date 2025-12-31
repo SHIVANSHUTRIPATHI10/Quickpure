@@ -1,64 +1,50 @@
-from flask import Flask, request, redirect, url_for, render_template
-import sqlite3
+from flask import Flask, request, redirect, render_template
+import psycopg2
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
-DB_NAME = "contact.db"
 
-# ---------- DATABASE INIT ----------
-def init_db():
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS contacts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT NOT NULL,
-            phone TEXT NOT NULL,
-            message TEXT NOT NULL
-        )
-    """)
-    conn.commit()
-    conn.close()
+# ✅ Create DB connection per request
+def get_db_connection():
+    return psycopg2.connect(os.getenv("DATABASE_URL"))
 
-init_db()
-
-# ---------- ROUTES ----------
 @app.route("/")
 def home():
-    success = request.args.get("success")
-    return render_template("index.html", success=success)
+    return render_template("contact.html")   # ✅ SHOW HTML FORM
 
-@app.route("/save", methods=["POST"])
-def save():
-    name = request.form.get("name")
-    email = request.form.get("email")
-    phone = request.form.get("phone")
-    message = request.form.get("message")
+@app.route("/contact", methods=["POST"])
+def contact():
+    try:
+        data = request.form
+        conn = get_db_connection()
+        cur = conn.cursor()
 
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO contacts (name, email, phone, message) VALUES (?, ?, ?, ?)",
-        (name, email, phone, message)
-    )
-    conn.commit()
-    conn.close()
+        cur.execute("""
+            INSERT INTO contact (name, email, phone, message)
+            VALUES (%s, %s, %s, %s)
+        """, (
+            data["name"],
+            data["email"],
+            data.get("phone"),
+            data.get("message")
+        ))
 
-    return redirect(url_for("home", success="1"))
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        return redirect("/success")
+
+    except Exception as e:
+        return f"Error: {e}", 500
 
 
-@app.route("/admin/data")
-def admin_data():
-    conn = sqlite3.connect("contact.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM contacts")
-    data = cursor.fetchall()
-    conn.close()
-    return {"data": data}
-@app.route("/test")
-def test():
-    return "TEST OK"
+@app.route("/success")
+def success():
+    return "<h2 style='text-align:center'>Message sent successfully ✅</h2>"
 
 
 if __name__ == "__main__":
